@@ -5,8 +5,8 @@ knitr::opts_chunk$set(
 )
 
 ## ----eval = FALSE-------------------------------------------------------------
-#  # devtools::install_github("mothur/phylotypr") #install development version
-#  install.packages("phylotypr") # install stable version from CRAN
+# # devtools::install_github("mothur/phylotypr") #install development version
+# install.packages("phylotypr") # install stable version from CRAN
 
 ## ----setup--------------------------------------------------------------------
 library(phylotypr)
@@ -57,25 +57,25 @@ miseq |>
   )
 
 ## ----eval = FALSE-------------------------------------------------------------
-#  library(dplyr)
-#  library(furrr)
-#  
-#  miseq <- read_fasta(phylotypr_example("miseq_sop.fasta.gz"))
-#  
-#  plan(strategy = multisession, workers = 4)
-#  options(future.globals.maxSize = 10000000000)
-#  
-#  miseq |>
-#    mutate(
-#      classification = future_map_chr(
-#        sequence,
-#        ~ classify_sequence(unknown = .x, database = db) |>
-#          filter_taxonomy() |>
-#          print_taxonomy(),
-#        .progress = TRUE,
-#        .options = furrr_options(seed = 19760620)
-#      )
-#    )
+# library(dplyr)
+# library(furrr)
+# 
+# miseq <- read_fasta(phylotypr_example("miseq_sop.fasta.gz"))
+# 
+# plan(strategy = multisession, workers = 4)
+# options(future.globals.maxSize = 10000000000)
+# 
+# miseq |>
+#   mutate(
+#     classification = future_map_chr(
+#       sequence,
+#       ~ classify_sequence(unknown = .x, database = db) |>
+#         filter_taxonomy() |>
+#         print_taxonomy(),
+#       .progress = TRUE,
+#       .options = furrr_options(seed = 19760620)
+#     )
+#   )
 
 ## -----------------------------------------------------------------------------
 map_chr(
@@ -94,9 +94,9 @@ map_chr(
 )
 
 ## ----eval = FALSE-------------------------------------------------------------
-#  devtools::install_github("mothur/phylotyprrefdata")
-#  library(phylotyprrefdata)
+# devtools::install_github("mothur/phylotyprrefdata")
+# library(phylotyprrefdata)
 
 ## ----eval = FALSE-------------------------------------------------------------
-#  data(package = "phylotyprrefdata")
+# data(package = "phylotyprrefdata")
 
