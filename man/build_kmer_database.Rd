@@ -4,18 +4,15 @@
 \alias{build_kmer_database}
 \title{Build kmer database}
 \usage{
-build_kmer_database(sequences, genera, kmer_size = 8)
+build_kmer_database(classification_database, kmer_size = 8)
 }
 \arguments{
-\item{sequences}{A vector of reference sequences for which we have
-genus-level taxonomic information in the same order as the
-value for genera.}
-
-\item{genera}{A character vector of genus-level taxonomic information for
-reference sequences in the same order as the value for
-sequences. Ideally, taxonomic information will be provided
-back to the domain level with each level separated by
-semicolons and no spaces.}
+\item{classification_database}{A \code{classification_database} object, which is a
+list containing the fields \code{seq_taxonomy_data} and
+\code{reference_data}. These are both data.frame objects. The package
+includes rdp_trainset9 and rdp_trainset9_pds. Other databases can
+be obtained from \pkg{phylotyprrefdata} or by using
+\code{create_database()}}
 
 \item{kmer_size}{An integer indicating the length of the nucleotide word to
 base our classification on (default = 8)}
@@ -30,17 +27,17 @@ Build kmer database for classifying 16S rRNA and other gene sequences to
 a genus when a kmer size is provided.
 }
 \examples{
-kmer_size <- 3
-sequences <- c("ATGCGCTA", "ATGCGCTC", "ATGCGCTC")
-genera <- c("A", "B", "B")
+kmer_size <- 8
 
-build_kmer_database(sequences, genera, kmer_size)
+\dontrun{
+# Function takes >5 s to run on this database
+build_kmer_database(rdp_trainset9_pds, kmer_size)
+}
 
 }
 \references{
 Wang Q, Garrity GM, Tiedje JM, Cole JR. Naive Bayesian classifier for rapid
 assignment of rRNA sequences into the new bacterial taxonomy. Appl Environ
-Microbiol. 2007 Aug;73(16):5261-7.
-doi:\href{https://pubmed.ncbi.nlm.nih.gov/17586664/}{10.1128/AEM.00062-07}
+Microbiol. 2007 Aug;73(16):5261-7. \doi{doi:10.1128/AEM.00062-07}
 PMID: 17586664; PMCID: PMC1950982.
 }

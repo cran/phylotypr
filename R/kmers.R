@@ -3,14 +3,12 @@
 #' Build kmer database for classifying 16S rRNA and other gene sequences to
 #' a genus when a kmer size is provided.
 #'
-#' @param sequences A vector of reference sequences for which we have
-#'                  genus-level taxonomic information in the same order as the
-#'                  value for genera.
-#' @param genera    A character vector of genus-level taxonomic information for
-#'                  reference sequences in the same order as the value for
-#'                  sequences. Ideally, taxonomic information will be provided
-#'                  back to the domain level with each level separated by
-#'                  semicolons and no spaces.
+#' @param classification_database A `classification_database` object, which is a
+#'            list containing the fields `seq_taxonomy_data` and
+#'            `reference_data`. These are both data.frame objects. The package
+#'            includes rdp_trainset9 and rdp_trainset9_pds. Other databases can
+#'            be obtained from \pkg{phylotyprrefdata} or by using
+#'            `create_database()`
 #' @param kmer_size An integer indicating the length of the nucleotide word to
 #'                  base our classification on (default = 8)
 #'
@@ -21,22 +19,29 @@
 #' @references
 #' Wang Q, Garrity GM, Tiedje JM, Cole JR. Naive Bayesian classifier for rapid
 #' assignment of rRNA sequences into the new bacterial taxonomy. Appl Environ
-#' Microbiol. 2007 Aug;73(16):5261-7.
-#' doi:[10.1128/AEM.00062-07](https://pubmed.ncbi.nlm.nih.gov/17586664/)
+#' Microbiol. 2007 Aug;73(16):5261-7. \doi{doi:10.1128/AEM.00062-07}
 #' PMID: 17586664; PMCID: PMC1950982.
 #'
 #' @examples
-#' kmer_size <- 3
-#' sequences <- c("ATGCGCTA", "ATGCGCTC", "ATGCGCTC")
-#' genera <- c("A", "B", "B")
+#' kmer_size <- 8
 #'
-#' build_kmer_database(sequences, genera, kmer_size)
+#' \dontrun{
+#' # Function takes >5 s to run on this database
+#' build_kmer_database(rdp_trainset9_pds, kmer_size)
+#' }
 #'
 #' @export
-build_kmer_database <- function(sequences, genera, kmer_size = 8) {
-  genera_indices <- genera_str_to_index(genera)
+build_kmer_database <- function(classification_database, kmer_size = 8) {
+  if (!inherits(classification_database, "classification_database")) {
+    stop("You supplied a database that is not of type classification_database")
+  }
 
-  detected_kmers <- detect_kmers_across_sequences(sequences,
+  genera_indices <- genera_str_to_index(
+    classification_database$seq_taxonomy_data$taxonomy
+  )
+
+  detected_kmers <- detect_kmers_rcpp(
+    classification_database$seq_taxonomy_data$sequence,
     kmer_size = kmer_size
   )
 
@@ -46,14 +51,16 @@ build_kmer_database <- function(sequences, genera, kmer_size = 8) {
     detected_kmers, genera_indices,
     priors
   )
-  genera_names <- get_unique_genera(genera)
+  genera_names <- get_unique_genera(
+    classification_database$seq_taxonomy_data$taxonomy
+  )
 
-  return(list(
+  list(
     conditional_prob = cond_prob,
-    genera = genera_names
-  ))
+    genera = genera_names,
+    reference_data = classification_database$reference_data
+  )
 }
-
 
 
 #' Classify 16S rRNA gene sequence fragment
@@ -61,9 +68,8 @@ build_kmer_database <- function(sequences, genera, kmer_size = 8) {
 #' The `classify_sequence()` function implements the Wang et al. naive Bayesian
 #' classification algorithm for 16S rRNA gene sequences.
 #'
-#' @param unknown_sequence   A character object representing a DNA sequence that
-#'                           needs to be classified
-#' @param database  A kmer database generated using [`build_kmer_database`]
+#' @param sequence   A character object representing a DNA sequence that
+#'                           needs to be classified.
 #' @param kmer_size An integer value (default of 8) indicating the size of kmers
 #'                  to use for classifying sequences. Higher values use more
 #'                  RAM with potentially more specificity Lower values use
@@ -74,97 +80,39 @@ build_kmer_database <- function(sequences, genera, kmer_size = 8) {
 #' @param num_bootstraps An integer value (default of 100). The value of
 #'                  `num_bootstraps` is the number of randomizations to perform
 #'                  where `1/kmer_size` of all kmers are sampled (without
-#'                  replacement) from `unknown_sequence`. Higher values will
+#'                  replacement) from `sequence`. Higher values will
 #'                  provide greater precision on the confidence score.
 #'
 #' @returns A list object of two vectors. One vector (`taxonomy`) is the
 #'          taxonomic assignment for each level. The second vector
 #'          (`confidence`) is the percentage of `num_bootstraps` that the
-#'          classifier gave the same classification at that level
-#' @inherit build_kmer_database references
+#'          classifier gave the same classification at that level.
+#' @inheritParams classify_sequences database
 #' @export
 #'
 #' @examples
 #' kmer_size <- 3
-#' sequences <- c("ATGCGCTA", "ATGCGCTC", "ATGCGCTC")
-#' genera <- c("A", "B", "B")
+#' reference_names <- c("seq_1", "seq_2", "seq_3")
+#' reference_sequences <- c("ATGCGCTA", "ATGCGCTC", "ATGCGCTC")
+#' reference_genera <- c("A", "B", "B")
+#' reference <- create_database(reference_names, reference_sequences, reference_genera)
 #'
-#' db <- build_kmer_database(sequences, genera, kmer_size)
+#' db <- build_kmer_database(reference, kmer_size)
 #' unknown_sequence <- "ATGCGCTC"
 #'
 #' classify_sequence(
-#'   unknown_sequence = unknown_sequence,
+#'   sequence = unknown_sequence,
 #'   database = db,
 #'   kmer_size = kmer_size
 #' )
-classify_sequence <- function(unknown_sequence, database,
+#'
+classify_sequence <- function(sequence, database,
                               kmer_size = 8, num_bootstraps = 100) {
-  kmers <- detect_kmers(sequence = unknown_sequence, kmer_size)
-
-  bs_class <- numeric(length = num_bootstraps)
-
-  for (i in 1:num_bootstraps) {
-    bs_kmers <- bootstrap_kmers(kmers, kmer_size)
-    bs_class[[i]] <- classify_bs(bs_kmers, database$conditional_prob)
-  }
-
-  consensus_bs_class(bs_class, database$genera)
-}
-
-
-#' @noRd
-#' @importFrom stringi stri_length stri_sub
-get_all_kmers <- function(x, kmer_size = 8) {
-  seq_length <- stringi::stri_length(x)
-  n_kmers <- seq_length - kmer_size + 1
-  seq_kmers <- stringi::stri_sub(x, 1:n_kmers, kmer_size:seq_length)
-
-  return(seq_kmers)
-}
-
-
-#' @noRd
-#' @importFrom stringi stri_trans_toupper stri_replace_all_charclass
-#'   stri_trans_char
-seq_to_base4 <- function(sequence) {
-  stringi::stri_trans_toupper(sequence) |>
-    stringi::stri_replace_all_charclass(
-      str = _,
-      pattern = "[^ACGT]",
-      replacement = "N"
-    ) |>
-    stringi::stri_trans_char(str = _, pattern = "ACGT", replacement = "0123")
-}
-
-
-#' @noRd
-#' @importFrom stats na.omit
-base4_to_index <- function(base4_str) {
-  # I want output to be indexed to start at position 1 rather than 0 so we're
-  # adding 1 to all base10 values
-  stats::na.omit(strtoi(base4_str, base = 4) + 1) |> as.numeric()
-}
-
-
-#' @noRd
-detect_kmers <- function(sequence, kmer_size = 8) {
-  seq_to_base4(sequence) |>
-    get_all_kmers(kmer_size) |>
-    base4_to_index() |>
-    unique()
-}
-
-
-#' @noRd
-detect_kmers_across_sequences <- function(sequences, kmer_size = 8) {
-  n_sequences <- length(sequences)
-  kmer_list <- vector(mode = "list", length = n_sequences)
-
-  for (i in seq_along(1:n_sequences)) {
-    kmer_list[[i]] <- detect_kmers(sequences[[i]], kmer_size = kmer_size)
-  }
-
-  return(kmer_list)
+  .Deprecated("classify_sequences")
+  classify_sequences(
+    sequence = sequence, database = database,
+    kmer_size = kmer_size, num_bootstraps = num_bootstraps
+  )
 }
 
 
@@ -186,41 +134,41 @@ calc_genus_conditional_prob <- function(detect_list,
                                         genera,
                                         word_specific_priors) {
   genus_counts <- tabulate(genera)
-  n_genera <- length(genus_counts)
-  n_sequences <- length(genera)
-  n_kmers <- length(word_specific_priors)
 
-  kmer_genus_count <- matrix(0,
-    nrow = n_kmers,
-    ncol = n_genera
+  calculate_log_probability_rcpp(
+    detect_list,
+    word_specific_priors,
+    genera,
+    genus_counts
   )
 
-  for (i in 1:n_sequences) {
-    kmer_genus_count[detect_list[[i]], genera[i]] <-
-      kmer_genus_count[detect_list[[i]], genera[i]] + 1
-  }
+  # flatten matrix to vector. matrix unloads rowwise
+  # row = genus; nrows = n_genera
+  # column = kmer; ncols = 4^kmer_size
+  # 1 4 7
+  # 2 5 8 => 1 2 3 4 5 6 7 8 9
+  # 3 6 9
+  # math: (column - 1) * nrows + row
+ }
 
-  # this calls the Rcpp version of the function
-  calculate_log_probability(
-    kmer_genus_count,
-    word_specific_priors,
-    genus_counts
-  ) |>
-    t()
+
+#' @noRd
+genera_str_to_index <- function(string_matrix) {
+  apply(string_matrix, 1, paste, collapse = ";") |>
+    factor() |>
+    as.numeric()
 }
 
 
 #' @noRd
-genera_str_to_index <- function(string) {
-  factor(string) |> as.numeric()
+get_unique_genera <- function(string_matrix) {
+  apply(string_matrix, 1, paste, collapse = ";") |>
+    factor() |>
+    levels() |>
+    strsplit(";") |>
+    do.call(rbind, args = _) |>
+    I()
 }
-
-
-#' @noRd
-get_unique_genera <- function(string) {
-  factor(string) |> levels()
-}
-
 
 
 #' @noRd
@@ -231,46 +179,56 @@ bootstrap_kmers <- function(kmers, kmer_size = 8) {
 
 
 #' @noRd
-#' @importFrom Rfast rowsums
-classify_bs <- function(unknown_kmers, conditional_prob) {
-  probabilities <- Rfast::rowsums(conditional_prob[, unknown_kmers])
-  which.max(probabilities)
-}
-
-
-#' @noRd
+#' @importFrom stringi stri_split_fixed stri_c
 consensus_bs_class <- function(bs_class, genera) {
-  taxonomy <- genera[bs_class]
-  taxonomy_split <- stringi::stri_split_fixed(taxonomy, pattern = ";")
+  lapply(
+    bs_class,
+    \(x) {
+      # taxonomy <- genera[x]
+      # # think about storing as already split in create_database...
+      # stringi::stri_split_fixed(taxonomy, pattern = ";") |>
+      #   get_consensus()
 
-  n_levels <- length(taxonomy_split[[1]])
+        get_consensus(genera[x, , drop = FALSE])
 
-  consensus_list <- lapply(
-    1:n_levels,
-    \(i) {
-      sapply(taxonomy_split, \(p) paste(p[1:i], collapse = ";")) |>
-        get_consensus()
     }
   )
-
-  list(
-    taxonomy = stringi::stri_split_fixed(consensus_list[[n_levels]][["id"]],
-      pattern = ";"
-    ) |>
-      unlist(),
-    confidence = sapply(consensus_list, `[[`, "frac")
-  )
 }
 
-
 #' @noRd
-get_consensus <- function(taxonomy) {
-  n_bs <- length(taxonomy)
-  taxonomy_table <- table(taxonomy)
-  max_index <- which.max(taxonomy_table)
+get_consensus <- function(tax_table) {
+  n_bootstraps <- nrow(tax_table)
+  max_depth <- ncol(tax_table)
+
+  max_count <- integer(length = max_depth)
+  max_tax <- character(length = max_depth)
+
+  prior_tax_count <- 0
+
+  for (column in 1:max_depth) {
+
+    tax_column <- tax_table[, column]
+
+    column_factor <- factor(
+      tax_column, levels = unique(tax_column)
+    )
+
+    tax_count <- tabulate(column_factor)
+    max_index <- which.max(tax_count)
+    max_count[column] <- tax_count[max_index]
+    max_tax[column] <- levels(column_factor)[max_index]
+
+    if(length(tax_count) == prior_tax_count){
+      next
+    }
+
+    tax_table <- tax_table[tax_table[, column] == max_tax[column], ]
+    prior_tax_count <- length(tax_count)
+  }
 
   list(
-    frac = 100 * taxonomy_table[[max_index]] / n_bs,
-    id = names(max_index)
+    level = 1:max_depth,
+    taxonomy = max_tax,
+    confidence = 100 * max_count / n_bootstraps
   )
 }

@@ -1,7 +1,7 @@
 Package: phylotypr
 Type: Package
 Title: Classifying DNA Sequences to Taxonomic Groupings
-Version: 0.1.1
+Version: 0.2.0
 Authors@R: 
     person("Pat", "Schloss", , "pschloss@umich.edu",
            role = c("aut", "cre", "cph"),
@@ -13,17 +13,17 @@ LazyData: true
 LazyDataCompression: xz
 URL: https://github.com/mothur/phylotypr, https://mothur.org/phylotypr/
 BugReports: https://github.com/mothur/phylotypr/issues
-RoxygenNote: 7.3.2
-Suggests: knitr, rmarkdown, purrr, dplyr, testthat (>= 3.0.0)
+Suggests: knitr, rmarkdown, purrr, dplyr, testthat (>= 3.0.0), strollur
 Config/testthat/edition: 3
-Imports: Rcpp, readr (>= 2.1.0), Rfast (>= 2.1.0), stats (>= 4.0.0),
-        stringi (>= 1.8.0)
-LinkingTo: Rcpp
+Imports: Rcpp, readr (>= 2.1.0), stringi (>= 1.8.0), stats, parallelly
+LinkingTo: Rcpp, RcppThread
 Depends: R (>= 4.2)
 VignetteBuilder: knitr
+Config/roxygen2/version: 8.1.1
 NeedsCompilation: yes
-Packaged: 2025-02-21 14:28:08 UTC; pschloss
-Author: Pat Schloss [aut, cre, cph] (<https://orcid.org/0000-0002-6935-4275>)
+Packaged: 2026-10-22 13:47:14 UTC; pschloss
+Author: Pat Schloss [aut, cre, cph] (ORCID:
+    <https://orcid.org/0000-0002-6935-4275>)
 Maintainer: Pat Schloss <pschloss@umich.edu>
 Repository: CRAN
-Date/Publication: 2025-02-21 14:40:02 UTC
+Date/Publication: 2026-10-22 14:30:02 UTC

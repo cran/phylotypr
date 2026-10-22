@@ -11,19 +11,18 @@ knitr::opts_chunk$set(
 ## ----setup--------------------------------------------------------------------
 library(phylotypr)
 
-set.seed(19760620) # pat's birtday in YYYYMMDD format
-
 ## -----------------------------------------------------------------------------
-db <- build_kmer_database(
-  trainset9_pds$sequence,
-  trainset9_pds$taxonomy
-)
+db <- build_kmer_database(rdp_trainset9_pds)
 
 ## -----------------------------------------------------------------------------
 unknown <- "TACGGAGGATGCGAGCGTTATCCGGATTTATTGGGTTTAAAGGGTGCGTAGGCGGATCGTTAAGTCAGTGGTCAAATTGAGGGGCTCAACCCCTTCCCGCCATTGAAACTGGCGATCTTGAGTGGAAGAGAAGTATGCGGAATGCGTGGTGTAGCGGTGAAATGCATAGATATCACGCAGAACCCCGATTGCGAAGGCAGCATGCCGGCTTCCTACTGACGCTCATGCACGAAAGTGTGGGTAACGAACAGG"
 
-## -----------------------------------------------------------------------------
-consensus <- classify_sequence(unknown = unknown, database = db)
+## ----echo = TRUE, eval = FALSE------------------------------------------------
+# consensus <- classify_sequences(sequence = unknown, database = db, seed = 123)
+
+## ----echo = FALSE-------------------------------------------------------------
+consensus <- classify_sequences(sequence = unknown, database = db, seed = 123,
+                                num_processors = 2)
 
 ## -----------------------------------------------------------------------------
 consensus
@@ -37,61 +36,57 @@ filtered
 ## -----------------------------------------------------------------------------
 print_taxonomy(filtered)
 
-## -----------------------------------------------------------------------------
-library(dplyr)
-library(purrr)
+## ----echo = TRUE, eval = FALSE------------------------------------------------
+# read_fasta(phylotypr_example("miseq_sop.fasta.gz")) |>
+#   classify_sequences(database = db, seed = 123) |>
+#   print_taxonomy() |>
+#   head()
 
-set.seed(19760620) # pat's birtday in YYYYMMDD format
+## ----echo = FALSE-------------------------------------------------------------
+read_fasta(phylotypr_example("miseq_sop.fasta.gz")) |>
+  classify_sequences(database = db, seed = 123, num_processors = 2) |>
+  print_taxonomy() |>
+  head()
 
-miseq <- read_fasta(phylotypr_example("miseq_sop.fasta.gz"))
+## ----echo = TRUE, eval = FALSE------------------------------------------------
+# strollur::new_dataset(dataset_name = "sop") |>
+#   strollur::add(
+#     table = phylotypr::read_fasta(phylotypr_example("miseq_sop.fasta.gz"))
+#   ) |>
+#   classify_sequences(db, seed = 123) |>
+#   print_taxonomy() |>
+#   head()
 
-miseq |>
-  dplyr::mutate(
-    classification = purrr::map_chr(
-      sequence,
-      ~ classify_sequence(unknown = .x, database = db) |>
-        filter_taxonomy() |>
-        print_taxonomy(),
-      .progress = TRUE
-    )
-  )
-
-## ----eval = FALSE-------------------------------------------------------------
-# library(dplyr)
-# library(furrr)
-# 
-# miseq <- read_fasta(phylotypr_example("miseq_sop.fasta.gz"))
-# 
-# plan(strategy = multisession, workers = 4)
-# options(future.globals.maxSize = 10000000000)
-# 
-# miseq |>
-#   mutate(
-#     classification = future_map_chr(
-#       sequence,
-#       ~ classify_sequence(unknown = .x, database = db) |>
-#         filter_taxonomy() |>
-#         print_taxonomy(),
-#       .progress = TRUE,
-#       .options = furrr_options(seed = 19760620)
-#     )
-#   )
+## ----echo = FALSE-------------------------------------------------------------
+strollur::new_dataset(dataset_name = "sop") |>
+  strollur::add(
+    table = phylotypr::read_fasta(phylotypr_example("miseq_sop.fasta.gz"))
+  ) |>
+  classify_sequences(database = db, seed = 123, num_processors = 2) |>
+  print_taxonomy() |>
+  head()
 
 ## -----------------------------------------------------------------------------
-map_chr(
-  rep(unknown, 3),
-  ~ classify_sequence(unknown = .x, database = db, num_bootstraps = 100) |>
-    filter_taxonomy() |>
-    print_taxonomy()
-)
+parallelly::availableCores()
 
 ## -----------------------------------------------------------------------------
-map_chr(
-  rep(unknown, 3),
-  ~ classify_sequence(unknown = .x, database = db, num_bootstraps = 100) |>
-    filter_taxonomy() |>
-    print_taxonomy()
-)
+read_fasta(phylotypr_example("miseq_sop.fasta.gz")) |>
+  classify_sequences(database = db, seed = 123, num_processors = 2) |>
+  print_taxonomy() |>
+  head()
+
+## -----------------------------------------------------------------------------
+classify_sequences(sequence = unknown, database = db, seed = 1) |>
+  print_taxonomy()
+classify_sequences(sequence = unknown, database = db, seed = 2) |>
+  print_taxonomy()
+classify_sequences(sequence = unknown, database = db, seed = 3) |>
+  print_taxonomy()
+
+## -----------------------------------------------------------------------------
+classify_sequences(sequence = unknown, database = db, num_bootstraps = 1000,
+                   seed = 123) |>
+  print_taxonomy()
 
 ## ----eval = FALSE-------------------------------------------------------------
 # devtools::install_github("mothur/phylotyprrefdata")
